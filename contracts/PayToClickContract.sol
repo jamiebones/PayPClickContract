@@ -292,6 +292,77 @@ contract PayToClickContract is Ownable {
         members[msg.sender] = newMember;
     }
 
+    function insertSpillOverMember(
+        uint256 indexToUse,
+        SpillNode memory nodeToInsert
+    ) public payable {
+        //check if the nodeToInsert exist on the spillNodeArray
+        SpillNode[] memory spillNode = spillNodeArray[msg.sender];
+        bool exist;
+        uint256 indexToRemove;
+        for (uint8 i = 0; i < spillNode.length; i++) {
+            if (spillNode[i].memberAddress == nodeToInsert.memberAddress) {
+                exist = true;
+                indexToRemove = 1;
+            }
+        }
+
+        if (!exist) {
+            require(1 == 2, "the member does not exist on the spill node");
+        }
+
+        //get the member
+        Member memory member = members[nodeToInsert.memberAddress];
+        require(member.walletAddress != address(0), "invalid mmember");
+        require(
+            members[msg.sender].walletAddress != address(0),
+            "invalid sponsor"
+        );
+
+        require(
+            msg.value >= transactionTax,
+            "you need to send more transaction tax"
+        );
+
+        //find if we can insert the node at that spot
+        Node memory getNode = nodes[indexToUse];
+
+        if (getNode.memberAddress != address(0)) {
+            //we can insert
+            //create a new Node to insert
+            Node memory newNode;
+            newNode.index = indexToUse;
+            newNode.leftPointer = 0;
+            newNode.rightPointer = 0;
+            newNode.memberAddress = member.walletAddress;
+            newNode.points = nodeToInsert.points;
+
+            //place the new node on the nodes array
+            nodes[indexToUse] = newNode;
+
+            //add the pointer to the member
+            members[member.walletAddress].slotIndex = indexToUse;
+
+            //push the new index to the upline invites array
+            members[msg.sender].invites.push(indexToUse);
+
+            //remove the node from the spillOverNodeArray
+            spillNodeArray[msg.sender][indexToRemove] = spillNodeArray[
+                msg.sender
+            ][spillNodeArray[msg.sender].length - 1];
+            spillNodeArray[msg.sender].pop();
+
+             //remit tax to the greedy bastards:
+            shareTransactionFeeOfVNTToAdmin(msg.value);
+
+
+        } else {
+            require(1 == 2, "we can not insert a member at that position");
+        }
+
+       
+    }
+
     function _shareTokenFeeToAdmin(uint256 amount) private {
         //20% and 80%
         require(ownerWallet != address(0), "owner wallet not set");
