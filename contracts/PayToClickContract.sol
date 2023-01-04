@@ -6,6 +6,11 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract PayToClickContract is Ownable {
     //storage
+
+    // Define the head and tail indices as public storage variables
+    uint256 public head;
+    uint256 public tail;
+
     //where to place the Member in the tree
     uint256 private currentIndex;
     uint256 public advertCost;
@@ -38,10 +43,14 @@ contract PayToClickContract is Ownable {
     //0=> elite plan : 1=> premium : 2=> platinum
     MembershipPackage[] private membershipPackagesArray;
 
+    Node[] public Nodequeue;
+
     //mappings
     mapping(address => Member) members;
     mapping(address => Advertiser) advertisers;
     mapping(address => SpillNode[]) spillNodeArray; //the array that contains all spill nodes;
+
+    mapping(address => Node[]) public memberSubNode;
 
     //struct
 
@@ -352,15 +361,83 @@ contract PayToClickContract is Ownable {
             ][spillNodeArray[msg.sender].length - 1];
             spillNodeArray[msg.sender].pop();
 
-             //remit tax to the greedy bastards:
+            //remit tax to the greedy bastards:
             shareTransactionFeeOfVNTToAdmin(msg.value);
-
-
         } else {
             require(1 == 2, "we can not insert a member at that position");
         }
+    }
 
-       
+    function generateSubNodeFromBinaryTree() public {
+        //check if the person is a member
+        Node[] memory subNodes;
+        uint8 subNodeLength;
+        Member memory findMember = members[msg.sender];
+        if (findMember.walletAddress != address(0)) {
+            //check if they have a slot number
+            uint256 slotIndex = findMember.slotIndex;
+            if (
+                (slotIndex == 0 && findMember.walletAddress == ownerWallet) ||
+                slotIndex != 0
+            ) {
+                //this code will run if the slotIndex is 0 and the wallet address is the owner
+                //or it will also run if the slotIndex is not zero
+                Node memory startingNode = nodes[slotIndex];
+
+                //add the node to the queue
+                _enqueue(startingNode); //starting point
+
+                while (head != tail) {
+                    // Get the index of the next node in the queue
+                    Node memory dequeueNode = _dequeue();
+                    //add to the final array to return here
+                    subNodes[subNodeLength] = dequeueNode;
+                    //increment subNodeLength
+                    subNodeLength++;
+
+                    //check left pointer
+                    if (dequeueNode.leftPointer != 0) {
+                        _enqueue(nodes[dequeueNode.leftPointer]);
+                    }
+                    //check right pointer
+                    if (dequeueNode.rightPointer != 0) {
+                        _enqueue(nodes[dequeueNode.rightPointer]);
+                    }
+                }
+            }
+        }
+        //remove what was there before
+        delete memberSubNode[msg.sender];
+        for (uint256 i = 0; i < subNodes.length; i++) {
+            memberSubNode[msg.sender].push(subNodes[i]);
+        }
+    }
+
+    function retrieveSubNode() public view returns (Node[] memory) {
+        //return the generated sub node of the user;
+        return memberSubNode[msg.sender];
+    }
+
+    function _dequeue() private returns (Node memory) {
+        // If the queue is empty, throw an exception
+        require(head != tail, "Error: Queue is empty");
+
+        // Get the value of the front element
+        Node memory value = Nodequeue[head];
+
+        // Update the head index
+        head = (head + 1);
+
+        // Return the value of the removed node
+        return value;
+    }
+
+    // Define a function to add a new value to the end of the queue
+    function _enqueue(Node memory value) private {
+        // Add the new value to the end of the queue
+        Nodequeue[tail] = value;
+        // Update the tail index
+        tail = (tail + 1);
     }
 
     function _shareTokenFeeToAdmin(uint256 amount) private {
@@ -501,10 +578,6 @@ contract PayToClickContract is Ownable {
         editMembershipPackage.packagePoints = packagePoints;
         editMembershipPackage.maximumIncome = maximumIncome;
         membershipPackagesArray[index] = editMembershipPackage;
-    }
-
-    function _addMemberToBinaryNode() public {
-        //get the available currentIndex
     }
 
     //Admin Function Ends Here //
