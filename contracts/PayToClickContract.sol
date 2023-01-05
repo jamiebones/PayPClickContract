@@ -5,6 +5,13 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract PayToClickContract is Ownable {
+
+    //TO DO
+    //function to withdraw earnings
+    //re-buy membership function =>reset the points in the nodes array
+    //check the creation of nodes if all fields are filled well =piriority important
+    //
+
     //storage
 
     // Define the head and tail indices as public storage variables
@@ -21,6 +28,9 @@ contract PayToClickContract is Ownable {
     uint256 public clickReward = 10;
 
     address public ownerWallet; //wallet of owner
+
+    uint256 public minimumWithdrawal = 1;
+    uint256 public smbBonus = 2;
 
     //payment wallet
     //address[5] public advertWalletPayment;
@@ -43,6 +53,7 @@ contract PayToClickContract is Ownable {
     //0=> elite plan : 1=> premium : 2=> platinum
     MembershipPackage[] private membershipPackagesArray;
 
+    //SIMPLE QUEUE VARIABLE
     Node[] public Nodequeue;
 
     //mappings
@@ -51,6 +62,7 @@ contract PayToClickContract is Ownable {
     mapping(address => SpillNode[]) spillNodeArray; //the array that contains all spill nodes;
 
     mapping(address => Node[]) public memberSubNode;
+    mapping(address => uint256) public smbBonusEarned;
 
     //struct
 
@@ -228,7 +240,7 @@ contract PayToClickContract is Ownable {
         if (referralNode.memberAddress != address(0)) {
             //we have a node present.
             //check if the leftchild is empty
-            if (referralNode.leftPointer != 0) {
+            if (referralNode.leftPointer == 0) {
                 //we can add the new Node here
                 uint256 newLeftIndex = referralSlot * 2 + 1;
                 Node memory newNode;
@@ -244,7 +256,7 @@ contract PayToClickContract is Ownable {
                 currentIndex++;
                 return (newLeftIndex, true);
                 //return
-            } else if (referralNode.rightPointer != 0) {
+            } else if (referralNode.rightPointer == 0) {
                 //we can add it here
                 uint256 newRightIndex = referralSlot * 2 + 2;
                 Node memory newNode;
@@ -312,7 +324,7 @@ contract PayToClickContract is Ownable {
         for (uint8 i = 0; i < spillNode.length; i++) {
             if (spillNode[i].memberAddress == nodeToInsert.memberAddress) {
                 exist = true;
-                indexToRemove = 1;
+                indexToRemove = i;
             }
         }
 
@@ -511,7 +523,54 @@ contract PayToClickContract is Ownable {
         currentIndex++;
     }
 
+    function calculateSMBBonus() public {
+        //generate the generateSubNodeFromBinaryTree();
+        generateSubNodeFromBinaryTree();
+        //get the generated subTree from the mapping
+        Node[] memory subNode = memberSubNode[msg.sender];
+        uint256 smbPoints;
+        for (uint256 i = 0; i < subNode.length; i++) {
+            uint256 leftPointer = i * 2 + 1;
+            uint256 rightPointer = i * 2 + 2;
+            //check the points of the left pointer
+            if (
+                subNode[leftPointer].leftPointer != 0 &&
+                subNode[rightPointer].rightPointer != 0 &&
+                subNode[leftPointer].points != 0 &&
+                subNode[rightPointer].points != 0
+            ) {
+                //smb match here
+                smbPoints++;
+                //decrement the right and left pointer points
+                nodes[subNode[i].leftPointer].points =
+                    nodes[subNode[i].leftPointer].points -
+                    1;
+                nodes[subNode[i].rightPointer].points =
+                    nodes[subNode[i].rightPointer].points -
+                    1;
+            }
+        }
+        //save the earned bonus
+        smbBonusEarned[msg.sender] = smbBonusEarned[msg.sender] + smbPoints;
+    }
+
+    function retrieveSMBBonusEarned() public view returns (uint256) {
+        //the calculateSMBBonus(); function must be called before calling the retrieveSMBBonusEarned();
+        return smbBonusEarned[msg.sender];
+    }
+
     //Admin Function Starts Here //
+    function configureSMBBonusAndMinimumWithdrawal(
+        uint256 minWithdrawal,
+        uint256 smbBonusAllocation
+    ) public onlyOwner {
+        if (minimumWithdrawal > 0) {
+            minimumWithdrawal = minWithdrawal;
+        }
+        if (smbBonusAllocation > 0) {
+            smbBonus = smbBonusAllocation;
+        }
+    }
 
     function setMembershipPricing(uint256[2] memory pricing) public onlyOwner {
         require(pricing.length == 2, "the pricing requires 3 element");
