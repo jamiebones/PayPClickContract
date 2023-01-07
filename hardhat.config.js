@@ -1,4 +1,6 @@
 require("@nomicfoundation/hardhat-toolbox");
+require("hardhat-gas-reporter");
+require("hardhat-contract-sizer");
 require("dotenv").config();
 
 module.exports = {
@@ -14,6 +16,12 @@ module.exports = {
         version: "0.8.1",
       },
     ],
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 1,
+      },
+    },
   },
   networks: {
     hardhat: {
@@ -27,15 +35,20 @@ module.exports = {
       gasPrice: 8000000000,
     },
     ventionMainnet: {
-      url:  process.env.VENTION_URL_MAINNET,
+      url: process.env.VENTION_URL_MAINNET,
       accounts: [`0x${process.env.PRIVATE_KEY}`],
       chainId: 77612,
       gas: 2100000,
       gasPrice: 8000000000,
-    }
-    
+    },
   },
   etherscan: {
     apiKey: process.env.POLY_SCAN,
+  },
+  mocha: {
+    timeout: 400000,
+  },
+  contractSizer: {
+    runOnCompile: true,
   },
 };
