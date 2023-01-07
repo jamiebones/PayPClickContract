@@ -246,5 +246,12 @@ describe("PayToClickContract", function () {
         expect(+rightPointer2.toString()).to.be.equal(4);
 
       })
+
+      it("should calculate the SMB Bonus", async() => {
+           await PayToClickContract.connect(owner).calculateSMBBonus();
+           const smbBonus = await PayToClickContract.connect(owner).retrieveSMBBonusEarned();
+          expect(+smbBonus.toString()).to.be.equal(2);
+          
+      })
   });
 });

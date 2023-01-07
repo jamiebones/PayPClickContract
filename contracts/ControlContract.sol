@@ -373,7 +373,7 @@ contract ControlContract is Ownable, ReentrancyGuard {
     // Define a function to add a new value to the end of the queue
     function _enqueue(SharedStructs.Node memory value) public {
         // Add the new value to the end of the queue
-        Nodequeue[tail] = value;
+        Nodequeue.push(value);
         // Update the tail index
         tail = (tail + 1);
     }

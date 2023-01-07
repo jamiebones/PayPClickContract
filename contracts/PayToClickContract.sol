@@ -6,16 +6,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "./ControlContract.sol";
 import "./Lib.sol";
-import "hardhat/console.sol";
-
-//To-DO create a function where they call the control contract and withdraw from the payperclick function
-
-//enum storage
-// enum MembershipType {
-//     ELITE,
-//     PREMIUM,
-//     PLATINUM
-// }
+//import "hardhat/console.sol";
 
 //vusd contract address : 0x8694A1A789133c94aA3c95B80c852583628A93b6
 
@@ -27,11 +18,10 @@ contract PayToClickContract {
     //Declare control contract
     ControlContract public controlContract;
 
-    uint256 private vntDecimal = 10 ** 9;
+    uint256 private vntDecimal = 10**9;
 
     //where to place the Member in the tree
     uint256 private currentIndex;
-    
 
     //click reward in cents $1 token VUSD
 
@@ -46,7 +36,7 @@ contract PayToClickContract {
     //1=> admin wallet %
 
     //the array to hold the price of the membership packages of elite, premium and platinum
-    address private vusdContractAddress;
+
     IERC20 private VUSDTOKEN;
 
     //array of nodes
@@ -57,18 +47,18 @@ contract PayToClickContract {
     SharedStructs.Node[] public Nodequeue;
 
     //mappings
-    mapping(address => Member) members;
+    mapping(address => Member) private members;
 
-    mapping(address => SpillNode[]) spillNodeArray; //the array that contains all spill nodes;
+    mapping(address => SpillNode[]) private spillNodeArray; //the array that contains all spill nodes;
 
     mapping(address => SharedStructs.Node[]) public memberSubNode;
     mapping(address => uint256) public smbBonusEarned;
 
     //withdrawal history
-    mapping(address => History[]) public withdrawalHistory;
+    mapping(address => History[]) private withdrawalHistory;
 
     //admin VNT purse in the main contract
-    mapping(address => uint256) public adminVNTPurse;
+    mapping(address => uint256) private adminVNTPurse;
 
     uint256[] private membershipPackagePriceArray = [20, 100, 1000];
 
@@ -158,7 +148,7 @@ contract PayToClickContract {
 
         uint256 planPrice = membershipPackagePriceArray[planIndex];
         planPrice = planPrice * 1 ether;
-    
+
         uint256 planPoints = membershipPackagesArray[planIndex].packagePoints;
         //insert member into nodes
         (uint256 insertIndex, bool canInsert) = _insertMemberIntoNode(
@@ -422,7 +412,6 @@ contract PayToClickContract {
         uint256 parentIndex,
         uint256 points,
         address memberAddress
-
     ) public payable {
         //check if the nodeToInsert exist on the spillNodeArray
         SpillNode[] memory spillNode = spillNodeArray[msg.sender];
@@ -442,15 +431,14 @@ contract PayToClickContract {
         //get the member
         Member memory member = members[memberAddress];
         SharedStructs.Node memory parentNode = nodes[parentIndex];
-        
+
         if (parentNode.memberAddress != address(0)) {
             uint256 childNode;
-            if ( parentNode.leftPointer == 0 ){
+            if (parentNode.leftPointer == 0) {
                 //add the node here
                 childNode = 2 * parentIndex + 1;
                 nodes[parentIndex].leftPointer = childNode;
-            }
-            else if ( parentNode.rightPointer == 0 ){
+            } else if (parentNode.rightPointer == 0) {
                 childNode = 2 * parentIndex + 2;
                 nodes[parentIndex].rightPointer = childNode;
             } else {
@@ -485,18 +473,18 @@ contract PayToClickContract {
 
             //think of a way to structure the sharing
             shareTransactionFeeOfVNTToAdmin(msg.value);
-        } 
+        }
     }
 
     function generateSubNodeFromBinaryTree() public {
         //check if the person is a member
-        SharedStructs.Node[] memory subNodes;
-        uint8 subNodeLength;
+        SharedStructs.Node[1000] memory subNodes;
+        uint8 subNodeLength = 0;
         Member memory findMember = members[msg.sender];
-
+        uint256 slotIndex;
         if (findMember.walletAddress != address(0)) {
             //check if they have a slot number
-            uint256 slotIndex = findMember.slotIndex;
+            slotIndex = findMember.slotIndex;
             if (
                 (slotIndex == 0 && findMember.walletAddress == ownerWallet) ||
                 slotIndex != 0
@@ -534,8 +522,14 @@ contract PayToClickContract {
         }
         //remove what was there before
         delete memberSubNode[msg.sender];
+        bool savedAlready;
         for (uint256 i = 0; i < subNodes.length; i++) {
-            memberSubNode[msg.sender].push(subNodes[i]);
+            if (slotIndex == 0 && subNodes[i].index == 0 && !savedAlready) {
+                memberSubNode[msg.sender].push(subNodes[i]);
+                savedAlready = true;
+            } else if (subNodes[i].index != 0) {
+                memberSubNode[msg.sender].push(subNodes[i]);
+            }
         }
     }
 
@@ -550,9 +544,9 @@ contract PayToClickContract {
 
     receive() external payable {}
 
-    function checkTokenBalance(address wallet) public view returns (uint256) {
-        return VUSDTOKEN.balanceOf(wallet);
-    }
+    // function checkTokenBalance(address wallet) public view returns (uint256) {
+    //     return VUSDTOKEN.balanceOf(wallet);
+    // }
 
     function _setInitialPyramid(address owner) private {
         //add the first value in the Node array
@@ -587,28 +581,23 @@ contract PayToClickContract {
     function calculateSMBBonus() public {
         //generate the generateSubNodeFromBinaryTree();
         generateSubNodeFromBinaryTree();
-        //get the generated subTree from the mapping
-        SharedStructs.Node[] memory subNode = memberSubNode[msg.sender];
         uint256 smbPoints;
-        for (uint256 i = 0; i < subNode.length; i++) {
+        uint256 arrayLength = memberSubNode[msg.sender].length;
+        for (uint256 i = 0; i < arrayLength; i++) {
             uint256 leftPointer = i * 2 + 1;
             uint256 rightPointer = i * 2 + 2;
             //check the points of the left pointer
             if (
-                subNode[leftPointer].leftPointer != 0 &&
-                subNode[rightPointer].rightPointer != 0 &&
-                subNode[leftPointer].points != 0 &&
-                subNode[rightPointer].points != 0
+                leftPointer < arrayLength &&
+                rightPointer < arrayLength &&
+                memberSubNode[msg.sender][leftPointer].points > 0 &&
+                memberSubNode[msg.sender][rightPointer].points > 0
             ) {
                 //smb match here
                 smbPoints++;
                 //decrement the right and left pointer points
-                nodes[subNode[i].leftPointer].points =
-                    nodes[subNode[i].leftPointer].points -
-                    1;
-                nodes[subNode[i].rightPointer].points =
-                    nodes[subNode[i].rightPointer].points -
-                    1;
+                nodes[leftPointer].points = nodes[leftPointer].points - 1;
+                nodes[rightPointer].points = nodes[rightPointer].points - 1;
             }
         }
         //save the earned bonus
@@ -616,7 +605,7 @@ contract PayToClickContract {
     }
 
     function retrieveSMBBonusEarned() public view returns (uint256) {
-        //the calculateSMBBonus(); function must be called before calling the retrieveSMBBonusEarned();
+        //calculateSMBBonus();
         return smbBonusEarned[msg.sender];
     }
 
@@ -675,7 +664,7 @@ contract PayToClickContract {
     function withdrawTokenFromContract() public {
         uint256 assetBalance = adminVNTPurse[msg.sender];
         if (assetBalance > 0) {
-         payable(msg.sender).call{value: assetBalance}("");
+            payable(msg.sender).call{value: assetBalance}("");
             // if (!success) {
             //     revert();
             // }
@@ -691,7 +680,6 @@ contract PayToClickContract {
         _;
     }
 
-
     function shareTokenFeeToAdmin(uint256 amount) public {
         //20% and 80%
         VUSDTOKEN.transferFrom(msg.sender, ownerWallet, (amount * 20) / 100);
@@ -705,9 +693,23 @@ contract PayToClickContract {
         }
     }
 
-    function getNodeByIndex(uint index) public view returns (address, uint, uint, uint){
+    function getNodeByIndex(uint256 index)
+        public
+        view
+        returns (
+            address,
+            uint256,
+            uint256,
+            uint256
+        )
+    {
         SharedStructs.Node memory node = nodes[index];
-        return (node.memberAddress, node.index, node.leftPointer, node.rightPointer);
+        return (
+            node.memberAddress,
+            node.index,
+            node.leftPointer,
+            node.rightPointer
+        );
     }
 
     //Admin Function Starts Here //
