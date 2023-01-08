@@ -6,7 +6,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "./ControlContract.sol";
 import "./Lib.sol";
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 //vusd contract address : 0x8694A1A789133c94aA3c95B80c852583628A93b6
 
@@ -53,12 +53,13 @@ contract PayToClickContract {
 
     mapping(address => SharedStructs.Node[]) public memberSubNode;
     mapping(address => uint256) public smbBonusEarned;
+     //admin VNT purse in the main contract
+    mapping(address => uint256) private adminVNTPurse;
 
     //withdrawal history
-    mapping(address => History[]) private withdrawalHistory;
+    // mapping(address => History[]) private withdrawalHistory;
 
-    //admin VNT purse in the main contract
-    mapping(address => uint256) private adminVNTPurse;
+   
 
     uint256[] private membershipPackagePriceArray = [20, 100, 1000];
 
@@ -67,10 +68,10 @@ contract PayToClickContract {
 
     //struct
 
-    struct History {
-        uint256 time;
-        uint256 amount;
-    }
+    // struct History {
+    //     uint256 time;
+    //     uint256 amount;
+    // }
 
     struct Member {
         address walletAddress;
@@ -132,7 +133,34 @@ contract PayToClickContract {
         }
 
         controlContract = ControlContract(controlContractAddress);
-        _setInitialPyramid(owner);
+        //set initial pyramid
+        SharedStructs.Node memory newNode;
+        newNode.memberAddress = owner;
+        newNode.index = 0;
+        newNode.leftPointer = 0;
+        newNode.rightPointer = 0;
+
+        //save the node
+        nodes[0] = (newNode); //index will be 0
+
+        //save the Member details
+        Member memory newMember;
+        newMember.directRefEarnings = 0;
+        newMember.invites = new uint256[](0);
+        newMember.walletAddress = owner;
+        newMember.slotIndex = 0;
+        newMember.upline = address(0);
+        newMember.uplineIndex = 0;
+        newMember.membershipType = MembershipType.PLATINUM;
+        newMember.status = true;
+        newMember.clickRewardEarned = 0;
+        newMember.firstClickToday = 0;
+        newMember.clickCount = 0;
+        newMember.totalEarnings = 0;
+        members[owner] = newMember;
+        //increment the currentIndex
+        currentIndex++;
+        //save the token address in a variable
         VUSDTOKEN = IERC20(tokenAddress);
     }
 
@@ -274,16 +302,12 @@ contract PayToClickContract {
             planPrice = membershipPackagePriceArray[1];
             packagePoints = membershipPackagesArray[1].packagePoints;
         }
-
-        if (member.totalEarnings >= maximumEarnings) {
+        if (
+            member.walletAddress == address(0) ||
+            member.totalEarnings < maximumEarnings
+        ) {
             revert();
         }
-
-        //check if they have tokens
-        // require(
-        //     VUSDTOKEN.balanceOf(msg.sender) >= planPrice,
-        //     "insufficent token to buy plan"
-        // );
 
         uint256 amountToShare = (planPrice * 10) / 100;
         uint256 amountToContract = (planPrice * 90) / 100;
@@ -322,6 +346,10 @@ contract PayToClickContract {
         //check if the person has not collected more than their package
         Member memory member = members[msg.sender];
         //check transaction tax
+
+        if (msg.value < transactionTax) {
+            revert();
+        }
 
         //get package total Earnings
         uint256 maximumEarnings;
@@ -362,7 +390,7 @@ contract PayToClickContract {
 
         //add amount available to withdraw to extra earnings left
 
-        if (amountAvailableToWithdraw > minimumWithdrawal) {
+        if (amountAvailableToWithdraw < minimumWithdrawal * 1 ether) {
             revert();
         }
 
@@ -394,10 +422,10 @@ contract PayToClickContract {
         //minus and keep the balane in the left over balance
 
         //save the history of the withdrawal
-        History memory newHistory;
-        newHistory.time = block.timestamp;
-        newHistory.amount = amountToTransfer;
-        withdrawalHistory[msg.sender].push(newHistory);
+        // History memory newHistory;
+        // newHistory.time = block.timestamp;
+        // newHistory.amount = amountToTransfer;
+        // withdrawalHistory[msg.sender].push(newHistory);
 
         //TO DO transfer 90% to the user wallet
         VUSDTOKEN.transfer(msg.sender, amountToTransfer);
@@ -492,7 +520,6 @@ contract PayToClickContract {
                 //this code will run if the slotIndex is 0 and the wallet address is the owner
                 //or it will also run if the slotIndex is not zero
                 SharedStructs.Node memory startingNode = nodes[slotIndex];
-
                 //add the node to the queue
                 controlContract._enqueue(startingNode); //starting point
 
@@ -548,36 +575,6 @@ contract PayToClickContract {
     //     return VUSDTOKEN.balanceOf(wallet);
     // }
 
-    function _setInitialPyramid(address owner) private {
-        //add the first value in the Node array
-        SharedStructs.Node memory newNode;
-        newNode.memberAddress = owner;
-        newNode.index = 0;
-        newNode.leftPointer = 0;
-        newNode.rightPointer = 0;
-
-        //save the node
-        nodes[0] = (newNode); //index will be 0
-
-        //save the Member details
-        Member memory newMember;
-        newMember.directRefEarnings = 0;
-        newMember.invites = new uint256[](0);
-        newMember.walletAddress = owner;
-        newMember.slotIndex = 0;
-        newMember.upline = address(0);
-        newMember.uplineIndex = 0;
-        newMember.membershipType = MembershipType.PLATINUM;
-        newMember.status = true;
-        newMember.clickRewardEarned = 0;
-        newMember.firstClickToday = 0;
-        newMember.clickCount = 0;
-        newMember.totalEarnings = 0;
-        members[owner] = newMember;
-        //increment the currentIndex
-        currentIndex++;
-    }
-
     function calculateSMBBonus() public {
         //generate the generateSubNodeFromBinaryTree();
         generateSubNodeFromBinaryTree();
@@ -596,8 +593,8 @@ contract PayToClickContract {
                 //smb match here
                 smbPoints++;
                 //decrement the right and left pointer points
-                nodes[leftPointer].points = nodes[leftPointer].points - 1;
-                nodes[rightPointer].points = nodes[rightPointer].points - 1;
+                nodes[leftPointer].points = nodes[leftPointer].points--;
+                nodes[rightPointer].points = nodes[rightPointer].points--;
             }
         }
         //save the earned bonus
@@ -612,12 +609,10 @@ contract PayToClickContract {
     function clickToEarn() public payable {
         // (, , uint256 transactionTax, ) = controlContract
         //     .getTransactionDetails();
-        if (members[msg.sender].walletAddress == address(0)) {
+        if (members[msg.sender].walletAddress == address(0) || msg.value < transactionTax ) {
             revert();
         }
-        if (msg.value < transactionTax) {
-            revert();
-        }
+     
         //require(msg.value >= transactionTax, "insufficient tax sent");
         Member memory member = members[msg.sender];
         uint256 allowedDailyClicks;
@@ -665,9 +660,6 @@ contract PayToClickContract {
         uint256 assetBalance = adminVNTPurse[msg.sender];
         if (assetBalance > 0) {
             payable(msg.sender).call{value: assetBalance}("");
-            // if (!success) {
-            //     revert();
-            // }
         }
     }
 
@@ -693,22 +685,49 @@ contract PayToClickContract {
         }
     }
 
-    function getNodeByIndex(uint256 index)
+    // function getNodeByIndex(uint256 index)
+    //     public
+    //     view
+    //     returns (
+    //         address,
+    //         uint256,
+    //         uint256,
+    //         uint256
+    //     )
+    // {
+    //     SharedStructs.Node memory node = nodes[index];
+    //     return (
+    //         node.memberAddress,
+    //         node.index,
+    //         node.leftPointer,
+    //         node.rightPointer
+    //     );
+    // }
+
+    function getMemberDetails()
         public
         view
         returns (
             address,
+            address,
             uint256,
             uint256,
-            uint256
+            uint256,
+            uint256,
+            uint256,
+            uint8
         )
     {
-        SharedStructs.Node memory node = nodes[index];
+        //Member memory member = members[msg.sender];
         return (
-            node.memberAddress,
-            node.index,
-            node.leftPointer,
-            node.rightPointer
+            members[msg.sender].walletAddress,
+            members[msg.sender].upline,
+            members[msg.sender].slotIndex,
+            members[msg.sender].directRefEarnings,
+            members[msg.sender].clickRewardEarned,
+            members[msg.sender].totalEarnings,
+            members[msg.sender].firstClickToday,
+            members[msg.sender].clickCount
         );
     }
 

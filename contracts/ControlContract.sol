@@ -43,7 +43,7 @@ contract ControlContract is Ownable, ReentrancyGuard {
 
     //payment wallet
     //address[5] public advertWalletPayment;
-    address[4] public adminWallet;
+    address[] public adminWallet;
 
     //0=> owner wallet %
     //1=> admin wallet %
@@ -92,9 +92,13 @@ contract ControlContract is Ownable, ReentrancyGuard {
         uint256 points;
     }
 
-    constructor(address owner, address tokenAddress) Ownable() {
+    constructor(address owner, address tokenAddress, address[]memory wallets) Ownable() {
         ownerWallet = owner;
         VUSDTOKEN = IERC20(tokenAddress);
+        //set admin adminWallet
+        for (uint8 i = 0; i < wallets.length; i++) {
+            adminWallet.push(wallets[i]);
+        }
     }
 
     function buyAdvertiserPlan(string memory message, string[] memory links)
@@ -226,23 +230,10 @@ contract ControlContract is Ownable, ReentrancyGuard {
         }
     }
 
-    function setAdminDetails(
-        uint256[2] memory pricing,
-        uint256 tax,
-        uint256 adCost,
-        uint256 rewardForClicking
-    ) public onlyOwner {
-        if (pricing.length > 0) {
-            //set pricing here
-            for (uint8 i = 0; i < pricing.length; i++) {
-                membershipPackagePriceArray[i] = pricing[i];
-            }
-        }
-
-        if (tax > 0) {
-            transactionTax = tax;
-        }
-
+    function setAdminDetails(uint256 adCost, uint256 rewardForClicking)
+        public
+        onlyOwner
+    {
         if (adCost > 0) {
             advertCost = adCost;
         }
@@ -251,13 +242,6 @@ contract ControlContract is Ownable, ReentrancyGuard {
             clickReward = rewardForClicking;
         }
     }
-
-    // function setMembershipPricing(uint256[2] memory pricing) public onlyOwner {
-    //     require(pricing.length == 2, "the pricing requires 3 element");
-    //     for (uint8 i = 0; i < pricing.length; i++) {
-    //         membershipPackagePriceArray[i] = pricing[i];
-    //     }
-    // }
 
     function setAdminWallet(address[] memory wallets) public onlyOwner {
         require(wallets.length == 4, "the wallet length should be 4");
