@@ -53,13 +53,11 @@ contract PayToClickContract {
 
     mapping(address => SharedStructs.Node[]) public memberSubNode;
     mapping(address => uint256) public smbBonusEarned;
-     //admin VNT purse in the main contract
+    //admin VNT purse in the main contract
     mapping(address => uint256) private adminVNTPurse;
 
     //withdrawal history
     // mapping(address => History[]) private withdrawalHistory;
-
-   
 
     uint256[] private membershipPackagePriceArray = [20, 100, 1000];
 
@@ -508,13 +506,13 @@ contract PayToClickContract {
         //check if the person is a member
         SharedStructs.Node[1000] memory subNodes;
         uint8 subNodeLength = 0;
-        Member memory findMember = members[msg.sender];
+        //Member memory findMember = members[msg.sender];
         uint256 slotIndex;
-        if (findMember.walletAddress != address(0)) {
+        if (members[msg.sender].walletAddress != address(0)) {
             //check if they have a slot number
-            slotIndex = findMember.slotIndex;
+            slotIndex = members[msg.sender].slotIndex;
             if (
-                (slotIndex == 0 && findMember.walletAddress == ownerWallet) ||
+                (slotIndex == 0 && members[msg.sender].walletAddress == ownerWallet) ||
                 slotIndex != 0
             ) {
                 //this code will run if the slotIndex is 0 and the wallet address is the owner
@@ -609,26 +607,29 @@ contract PayToClickContract {
     function clickToEarn() public payable {
         // (, , uint256 transactionTax, ) = controlContract
         //     .getTransactionDetails();
-        if (members[msg.sender].walletAddress == address(0) || msg.value < transactionTax ) {
+        if (
+            members[msg.sender].walletAddress == address(0) ||
+            msg.value < transactionTax
+        ) {
             revert();
         }
-     
+
         //require(msg.value >= transactionTax, "insufficient tax sent");
-        Member memory member = members[msg.sender];
+        //Member memory member = members[msg.sender];
         uint256 allowedDailyClicks;
-        if (member.membershipType == MembershipType.ELITE) {
+        if (members[msg.sender].membershipType == MembershipType.ELITE) {
             allowedDailyClicks = membershipPackagesArray[0].dailyClicks;
-        } else if (member.membershipType == MembershipType.PLATINUM) {
+        } else if (members[msg.sender].membershipType == MembershipType.PLATINUM) {
             allowedDailyClicks = membershipPackagesArray[2].dailyClicks;
-        } else if (member.membershipType == MembershipType.PREMIUM) {
+        } else if (members[msg.sender].membershipType == MembershipType.PREMIUM) {
             allowedDailyClicks = membershipPackagesArray[1].dailyClicks;
         }
 
-        uint256 fs = member.firstClickToday + (1 days);
+        //uint256 fs = member.firstClickToday + (1 days);
 
-        if (block.timestamp < fs) {
+        if (block.timestamp < members[msg.sender].firstClickToday + (1 days)) {
             //we can still click
-            if (member.clickCount >= allowedDailyClicks) {
+            if (members[msg.sender].clickCount >= allowedDailyClicks) {
                 revert();
             }
             //add the click to the
@@ -704,10 +705,38 @@ contract PayToClickContract {
     //     );
     // }
 
+    // function getMemberDetails()
+    //     public
+    //     view
+    //     returns (
+    //         address,
+    //         address,
+    //         uint256,
+    //         uint256,
+    //         uint256,
+    //         uint256,
+    //         uint256,
+    //         uint8
+    //     )
+    // {
+    //     //Member memory member = members[msg.sender];
+    //     return (
+    //         members[msg.sender].walletAddress,
+    //         members[msg.sender].upline,
+    //         members[msg.sender].slotIndex,
+    //         members[msg.sender].directRefEarnings,
+    //         members[msg.sender].clickRewardEarned,
+    //         members[msg.sender].totalEarnings,
+    //         members[msg.sender].firstClickToday,
+    //         members[msg.sender].clickCount
+    //     );
+    // }
+
     function getMemberDetails()
         public
         view
         returns (
+            SpillNode[] memory,
             address,
             address,
             uint256,
@@ -718,8 +747,8 @@ contract PayToClickContract {
             uint8
         )
     {
-        //Member memory member = members[msg.sender];
         return (
+            spillNodeArray[msg.sender],
             members[msg.sender].walletAddress,
             members[msg.sender].upline,
             members[msg.sender].slotIndex,
