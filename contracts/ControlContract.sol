@@ -1,5 +1,5 @@
 //SPDX-License-Identifier:MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.16;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -38,7 +38,7 @@ contract ControlContract is Ownable, ReentrancyGuard {
 
     address public ownerWallet; //wallet of owner
 
-    uint256 public minimumWithdrawal = 1;
+    uint256 public minimumWithdrawal = 50;
     uint256 public smbBonus = 2;
 
     //payment wallet
@@ -61,7 +61,8 @@ contract ControlContract is Ownable, ReentrancyGuard {
     SharedStructs.MembershipPackage[] public membershipPackagesArray;
 
     //mappings
-    mapping(address => Advertiser) advertisers;
+    //mapping(address => Advertiser) public advertisers;
+    Advertiser[] public advertisers;
     mapping(address => SpillNode[]) spillNodeArray; //the array that contains all spill nodes;
 
     //withdrawal history
@@ -121,7 +122,7 @@ contract ControlContract is Ownable, ReentrancyGuard {
         newAdvertiser.links = links;
         newAdvertiser.message = message;
         newAdvertiser.owner = msg.sender;
-        advertisers[msg.sender] = newAdvertiser;
+        advertisers.push(newAdvertiser);
 
         //perform the mathematics of sharing
         uint256 amountToShare = (advertCost * 10) / 100;
@@ -235,11 +236,13 @@ contract ControlContract is Ownable, ReentrancyGuard {
         onlyOwner
     {
         if (adCost > 0) {
-            advertCost = adCost;
+            advertCost = adCost * 1 ether;
         }
 
+        //divide what comes in by 1000
         if (rewardForClicking > 0) {
-            clickReward = rewardForClicking;
+            clickReward = rewardForClicking * 1 ether / 1000;
+            //clickReward = rewardForClicking;
         }
     }
 
@@ -368,6 +371,15 @@ contract ControlContract is Ownable, ReentrancyGuard {
 
     function getTail() public view returns (uint256) {
         return tail;
+    }
+
+
+    function getTokenBalance(address account) public view returns (uint){
+        return VUSDTOKEN.balanceOf(account);
+    }
+
+    function getAllAdverts() public view returns (Advertiser[] memory){
+        return advertisers;
     }
 
     //Admin Function Ends Here //

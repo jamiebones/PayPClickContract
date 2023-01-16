@@ -15,11 +15,14 @@ module.exports = {
       {
         version: "0.8.1",
       },
+      {
+        version: "0.8.16",
+      }
     ],
     settings: {
       optimizer: {
         enabled: true,
-        runs: 1,
+        runs: 1000,
       },
     },
   },
@@ -36,7 +39,12 @@ module.exports = {
     },
     ventionMainnet: {
       url: process.env.VENTION_URL_MAINNET,
-      accounts: [`0x${process.env.PRIVATE_KEY}`],
+      accounts: [
+        `0x${process.env.PRIVATE_KEY}`,
+        `0x${process.env.ACCOUNT_TWO_KEY}`,
+        `0x${process.env.ACCOUNT_ONE_KEY}`,
+        `0x${process.env.ACCOUNT_THREE_KEY}`,
+      ],
       chainId: 77612,
       gas: 2100000,
       gasPrice: 8000000000,

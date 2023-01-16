@@ -1,5 +1,5 @@
 //SPDX-License-Identifier:MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.16;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 //import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -16,19 +16,19 @@ contract PayToClickContract {
     using SharedStructs for *;
 
     //Declare control contract
-    ControlContract public controlContract;
+    ControlContract private controlContract;
 
-    uint256 private vntDecimal = 10**9;
+    //uint8 public constant DECIMALS = 9;
 
     //where to place the Member in the tree
     uint256 private currentIndex;
 
     //click reward in cents $1 token VUSD
 
-    address public ownerWallet; //wallet of owner
+    address private ownerWallet; //wallet of owner
 
     //payment wallet
-    address[] public adminWallet;
+    address[] private adminWallet;
 
     uint256 public transactionTax = 1; //1 VNT
 
@@ -40,14 +40,14 @@ contract PayToClickContract {
     IERC20 private VUSDTOKEN;
 
     //array of nodes
-    SharedStructs.Node[100000] private nodes;
+    SharedStructs.Node[100000] public nodes;
     //0=> elite plan : 1=> premium : 2=> platinum
 
     //SIMPLE QUEUE VARIABLE
-    SharedStructs.Node[] public Nodequeue;
+    SharedStructs.Node[] private Nodequeue;
 
     //mappings
-    mapping(address => Member) private members;
+    mapping(address => Member) public members;
 
     mapping(address => SpillNode[]) private spillNodeArray; //the array that contains all spill nodes;
 
@@ -59,7 +59,7 @@ contract PayToClickContract {
     //withdrawal history
     // mapping(address => History[]) private withdrawalHistory;
 
-    uint256[] private membershipPackagePriceArray = [20, 100, 1000];
+    uint256[] public membershipPackagePriceArray = [20, 100, 1000];
 
     //0=> elite plan : 1=> premium : 2=> platinum
     SharedStructs.MembershipPackage[] private membershipPackagesArray;
@@ -113,7 +113,7 @@ contract PayToClickContract {
             } else if (i == 1) {
                 SharedStructs.MembershipPackage memory newPackage;
                 newPackage.dailyClicks = 20;
-                newPackage.packagePoints = 10;
+                newPackage.packagePoints = 5;
                 newPackage.maximumIncome = 1500;
                 membershipPackagesArray.push(newPackage);
             } else if (i == 2) {
@@ -172,6 +172,10 @@ contract PayToClickContract {
             referral = nodes[0].memberAddress;
         }
 
+        if (members[msg.sender].walletAddress != address(0)) {
+            revert("1W");
+        }
+
         uint256 planPrice = membershipPackagePriceArray[planIndex];
         planPrice = planPrice * 1 ether;
 
@@ -185,7 +189,13 @@ contract PayToClickContract {
         //create a new Member
         Member memory newMember;
         newMember.upline = referral;
-        newMember.slotIndex = insertIndex;
+        if (canInsert) {
+            newMember.slotIndex = insertIndex;
+        } else {
+            //cannot insert just put a random value
+            newMember.slotIndex = 1000000;
+        }
+
         uint256 referralSlot = members[referral].slotIndex;
         newMember.uplineIndex = referralSlot;
         newMember.directRefEarnings = 0;
@@ -212,7 +222,7 @@ contract PayToClickContract {
         uint256 amountToContract = (planPrice * 90) / 100;
 
         //10% bonus
-        uint256 directRefBonus = (planPrice * 10) / 100;
+        uint256 directRefBonus = (planPrice * 10) / 100; //the bonus keep for the upline
         //add to the direct ref bonus
         members[referral].directRefEarnings =
             members[referral].directRefEarnings +
@@ -223,6 +233,7 @@ contract PayToClickContract {
             members[referral].invites.push(insertIndex);
         }
         shareTokenFeeToAdmin(amountToShare);
+
         VUSDTOKEN.transferFrom(msg.sender, address(this), amountToContract);
         //require(success, "transfer failed");
     }
@@ -234,6 +245,14 @@ contract PayToClickContract {
         //get the referral slotNumber
         uint256 referralSlot = members[referral].slotIndex;
         //get the referral node and see if the children position is filled;
+        if (referralSlot == 1000000) {
+            SpillNode memory spillNode;
+            spillNode.memberAddress = msg.sender;
+            spillNode.points = points;
+            //add the spillNode to the array
+            spillNodeArray[referral].push(spillNode);
+            return (1000000, false);
+        }
         SharedStructs.Node memory referralNode = nodes[referralSlot];
         if (referralNode.memberAddress != address(0)) {
             //we have a node present.
@@ -276,7 +295,7 @@ contract PayToClickContract {
                 spillNode.points = points;
                 //add the spillNode to the array
                 spillNodeArray[referral].push(spillNode);
-                return (0, false);
+                return (1000000, false);
             }
         }
     }
@@ -304,9 +323,9 @@ contract PayToClickContract {
             member.walletAddress == address(0) ||
             member.totalEarnings < maximumEarnings
         ) {
-            revert();
+            revert("o");
         }
-
+        planPrice = planPrice * 1 ether;
         uint256 amountToShare = (planPrice * 10) / 100;
         uint256 amountToContract = (planPrice * 90) / 100;
 
@@ -320,14 +339,17 @@ contract PayToClickContract {
         //set the new membership here
         members[msg.sender].totalEarnings = 0;
 
-        //add the points to the node here
+        //add the points to the node hereca
         //get the node
         SharedStructs.Node memory node = nodes[member.slotIndex];
         uint256 totalPoints = node.points + packagePoints;
         node.points = totalPoints;
 
         //add the node back to the binary tree system
-        nodes[member.slotIndex] = node;
+        if (member.slotIndex != 0 && member.slotIndex != 1000000) {
+            //not the owner and not the node not inserted yet
+            nodes[member.slotIndex] = node;
+        }
 
         //share to greedy bastards
         shareTokenFeeToAdmin(amountToShare);
@@ -345,9 +367,9 @@ contract PayToClickContract {
         Member memory member = members[msg.sender];
         //check transaction tax
 
-        if (msg.value < transactionTax) {
-            revert();
-        }
+        // if (msg.value < transactionTax) {
+        //     //revert();
+        // }
 
         //get package total Earnings
         uint256 maximumEarnings;
@@ -370,25 +392,27 @@ contract PayToClickContract {
         //bonus due to directRef
         uint256 amountAvailableToWithdraw;
 
-        amountAvailableToWithdraw += member.directRefEarnings; //already in 18 decimals coming from the client
+        amountAvailableToWithdraw = member.directRefEarnings; //already in 18 decimals coming from the client
 
         uint256 smbBonus = controlContract.getSmbBonus();
+
         //bonus due to SMB
-        calculateSMBBonus();
+        //calculateSMBBonus();
         uint256 smbPoints = smbBonusEarned[msg.sender];
 
         //get the token worth of the points
-        amountAvailableToWithdraw += smbPoints * smbBonus * 1 ether; //multiply by 18 decimals
-
+        amountAvailableToWithdraw =
+            amountAvailableToWithdraw +
+            ((smbPoints * smbBonus) * 1 ether); //multiply by 18 decimals
         //bonus due to daily click
 
         uint256 pointClicked = member.clickRewardEarned;
 
-        amountAvailableToWithdraw += pointClicked * clickReward * 1 ether;
-
+        //click reward comes in as ether
+        amountAvailableToWithdraw += (pointClicked * clickReward);
         //add amount available to withdraw to extra earnings left
 
-        if (amountAvailableToWithdraw < minimumWithdrawal * 1 ether) {
+        if (amountAvailableToWithdraw < (minimumWithdrawal)) {
             revert();
         }
 
@@ -410,11 +434,13 @@ contract PayToClickContract {
         // );
 
         //add the money to the totalEarnings
-        member.totalEarnings += amountAvailableToWithdraw;
+        members[msg.sender].totalEarnings =
+            members[msg.sender].totalEarnings +
+            amountAvailableToWithdraw;
         //set the directRef to 0
-        member.directRefEarnings = 0;
+        members[msg.sender].directRefEarnings = 0;
         //set the dailyClick to 0
-        member.clickCount = 0;
+        members[msg.sender].clickRewardEarned = 0;
         //set the SMB to 0
         smbBonusEarned[msg.sender] = 0;
         //minus and keep the balane in the left over balance
@@ -425,10 +451,13 @@ contract PayToClickContract {
         // newHistory.amount = amountToTransfer;
         // withdrawalHistory[msg.sender].push(newHistory);
 
+        //console.log("amount to transfer ", amountToTransfer);
+
         //TO DO transfer 90% to the user wallet
         VUSDTOKEN.transfer(msg.sender, amountToTransfer);
+      
         //Transfer 10% to the greedy bastards
-        shareTokenFeeToAdmin(taxOnWithdrawal);
+        shareTokenFeeToAdminOnWithdrawal(taxOnWithdrawal);
 
         //transfer tax to greedy bastards
         shareTransactionFeeOfVNTToAdmin(msg.value);
@@ -468,7 +497,7 @@ contract PayToClickContract {
                 childNode = 2 * parentIndex + 2;
                 nodes[parentIndex].rightPointer = childNode;
             } else {
-                revert();
+                revert("in");
             }
             //we can insert
             //create a new Node to insert
@@ -508,12 +537,16 @@ contract PayToClickContract {
         uint8 subNodeLength = 0;
         //Member memory findMember = members[msg.sender];
         uint256 slotIndex;
-        if (members[msg.sender].walletAddress != address(0)) {
+        if (
+            members[msg.sender].walletAddress != address(0) &&
+            members[msg.sender].slotIndex != 1000000
+        ) {
             //check if they have a slot number
             slotIndex = members[msg.sender].slotIndex;
             if (
-                (slotIndex == 0 && members[msg.sender].walletAddress == ownerWallet) ||
-                slotIndex != 0
+                (slotIndex == 0 &&
+                    members[msg.sender].walletAddress == ownerWallet) ||
+                slotIndex != 1000000
             ) {
                 //this code will run if the slotIndex is 0 and the wallet address is the owner
                 //or it will also run if the slotIndex is not zero
@@ -573,36 +606,67 @@ contract PayToClickContract {
     //     return VUSDTOKEN.balanceOf(wallet);
     // }
 
-    function calculateSMBBonus() public {
-        //generate the generateSubNodeFromBinaryTree();
-        generateSubNodeFromBinaryTree();
-        uint256 smbPoints;
-        uint256 arrayLength = memberSubNode[msg.sender].length;
-        for (uint256 i = 0; i < arrayLength; i++) {
-            uint256 leftPointer = i * 2 + 1;
-            uint256 rightPointer = i * 2 + 2;
-            //check the points of the left pointer
-            if (
-                leftPointer < arrayLength &&
-                rightPointer < arrayLength &&
-                memberSubNode[msg.sender][leftPointer].points > 0 &&
-                memberSubNode[msg.sender][rightPointer].points > 0
-            ) {
-                //smb match here
-                smbPoints++;
-                //decrement the right and left pointer points
-                nodes[leftPointer].points = nodes[leftPointer].points--;
-                nodes[rightPointer].points = nodes[rightPointer].points--;
-            }
-        }
-        //save the earned bonus
-        smbBonusEarned[msg.sender] = smbBonusEarned[msg.sender] + smbPoints;
-    }
+    // function calculateSMBBonus() public {
+    //     //generate the generateSubNodeFromBinaryTree();
+    //     generateSubNodeFromBinaryTree();
+    //     uint256 smbPoints;
+    //     uint256 arrayLength = memberSubNode[msg.sender].length;
+    //     for (uint256 i = 0; i < arrayLength; i++) {
+    //         uint256 leftPointer = i * 2 + 1;
+    //         uint256 rightPointer = i * 2 + 2;
+    //         //check the points of the left pointer
+    //         if (
+    //             leftPointer < arrayLength &&
+    //             rightPointer < arrayLength &&
+    //             memberSubNode[msg.sender][leftPointer].points > 0 &&
+    //             memberSubNode[msg.sender][rightPointer].points > 0
+    //         ) {
+    //             //smb match here
 
-    function retrieveSMBBonusEarned() public view returns (uint256) {
-        //calculateSMBBonus();
-        return smbBonusEarned[msg.sender];
-    }
+    //             //decrement the right and left pointer points
+    //             // if (memberSubNode[msg.sender][leftPointer].points > 0) {
+    //             //     memberSubNode[msg.sender][leftPointer].points =
+    //             //         memberSubNode[msg.sender][leftPointer].points -
+    //             //         1;
+    //             // }
+
+    //             // if (memberSubNode[msg.sender][rightPointer].points > 0) {
+    //             //     memberSubNode[msg.sender][rightPointer].points =
+    //             //         memberSubNode[msg.sender][rightPointer].points -
+    //             //         1;
+    //             // }
+
+    //             if (
+    //                 nodes[leftPointer].points > 0 &&
+    //                 nodes[rightPointer].points > 0
+    //             ) {
+    //                 smbPoints++;
+    //                 nodes[leftPointer].points = nodes[leftPointer].points - 1;
+    //                 nodes[rightPointer].points = nodes[rightPointer].points - 1;
+    //             }
+    //             // if (nodes[rightPointer].points > 0) {
+    //             //     nodes[rightPointer].points = nodes[rightPointer].points - 1;
+    //             // }
+    //         }
+    //     }
+    //     //save the earned bonus
+    //     smbBonusEarned[msg.sender] = smbBonusEarned[msg.sender] + smbPoints;
+    // }
+
+    // function calculateSMBBonus() public {
+    //     //generate the generateSubNodeFromBinaryTree();
+    //     generateSubNodeFromBinaryTree();
+    //     uint256 smbPoints;
+    //     // uint256 arrayLength = memberSubNode[msg.sender].length;
+
+    //     //save the earned bonus
+    //     smbBonusEarned[msg.sender] = smbBonusEarned[msg.sender] + smbPoints;
+    // }
+
+    // function retrieveSMBBonusEarned() public view returns (uint256) {
+    //     //calculateSMBBonus();
+    //     return smbBonusEarned[msg.sender];
+    // }
 
     function clickToEarn() public payable {
         // (, , uint256 transactionTax, ) = controlContract
@@ -619,9 +683,13 @@ contract PayToClickContract {
         uint256 allowedDailyClicks;
         if (members[msg.sender].membershipType == MembershipType.ELITE) {
             allowedDailyClicks = membershipPackagesArray[0].dailyClicks;
-        } else if (members[msg.sender].membershipType == MembershipType.PLATINUM) {
+        } else if (
+            members[msg.sender].membershipType == MembershipType.PLATINUM
+        ) {
             allowedDailyClicks = membershipPackagesArray[2].dailyClicks;
-        } else if (members[msg.sender].membershipType == MembershipType.PREMIUM) {
+        } else if (
+            members[msg.sender].membershipType == MembershipType.PREMIUM
+        ) {
             allowedDailyClicks = membershipPackagesArray[1].dailyClicks;
         }
 
@@ -686,51 +754,52 @@ contract PayToClickContract {
         }
     }
 
-    // function getNodeByIndex(uint256 index)
-    //     public
-    //     view
-    //     returns (
-    //         address,
-    //         uint256,
-    //         uint256,
-    //         uint256
-    //     )
-    // {
-    //     SharedStructs.Node memory node = nodes[index];
-    //     return (
-    //         node.memberAddress,
-    //         node.index,
-    //         node.leftPointer,
-    //         node.rightPointer
-    //     );
-    // }
+    function shareTokenFeeToAdminOnWithdrawal(uint256 amount) public {
+        //20% and 80%
+        VUSDTOKEN.transfer(ownerWallet, (amount * 20) / 100);
 
-    // function getMemberDetails()
-    //     public
-    //     view
-    //     returns (
-    //         address,
-    //         address,
-    //         uint256,
-    //         uint256,
-    //         uint256,
-    //         uint256,
-    //         uint256,
-    //         uint8
-    //     )
-    // {
-    //     //Member memory member = members[msg.sender];
-    //     return (
-    //         members[msg.sender].walletAddress,
-    //         members[msg.sender].upline,
-    //         members[msg.sender].slotIndex,
-    //         members[msg.sender].directRefEarnings,
-    //         members[msg.sender].clickRewardEarned,
-    //         members[msg.sender].totalEarnings,
-    //         members[msg.sender].firstClickToday,
-    //         members[msg.sender].clickCount
-    //     );
-    // }
+        for (uint256 i = 0; i < adminWallet.length; i++) {
+            VUSDTOKEN.transfer(adminWallet[i], (amount * 20) / 100);
+        }
+    }
+
+    function getTokenBalance(address account) public view returns (uint256) {
+        return VUSDTOKEN.balanceOf(account);
+    }
+
+    function getNodeByIndex(uint256 index)
+        public
+        view
+        returns (
+            address,
+            uint256,
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        SharedStructs.Node memory node = nodes[index];
+        return (
+            node.memberAddress,
+            node.index,
+            node.leftPointer,
+            node.rightPointer,
+            node.points
+        );
+    }
+
+    function updateSMBBalance(
+        uint256 smb,
+        SharedStructs.Node[] memory nodesToUpdate
+    ) public {
+        for (uint256 i = 0; i < nodesToUpdate.length; i++) {
+            nodes[nodesToUpdate[i].index].points = nodesToUpdate[i].points;
+        }
+        if (smb > 0) {
+            smbBonusEarned[msg.sender] = smbBonusEarned[msg.sender] + smb;
+        }
+    }
+
 
     function getMemberDetails()
         public
@@ -758,6 +827,24 @@ contract PayToClickContract {
             members[msg.sender].firstClickToday,
             members[msg.sender].clickCount
         );
+    }
+
+    function withdrawLeftOverFunds() public onlyOwner {
+        //loop through the VNT purse
+        uint256 sumTotal;
+
+        for (uint8 i = 0; i < adminWallet.length; i++) {
+            sumTotal += adminVNTPurse[adminWallet[i]];
+        }
+
+        sumTotal += adminVNTPurse[ownerWallet];
+        uint256 totalBal = address(this).balance;
+        uint256 toWithdraw = totalBal - sumTotal;
+        if (toWithdraw > 0) {
+            //withdraw balance
+            payable(msg.sender).call{value: toWithdraw}("");
+            //require(success, "f");
+        }
     }
 
     //Admin Function Starts Here //
