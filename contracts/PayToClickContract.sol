@@ -76,8 +76,8 @@ contract PayToClickContract {
         uint256 clickRewardEarned; //total number of clicks
         uint256 totalEarnings; //total amount they have earned
         uint256 firstClickToday; //the firsttime the advert was clicked
-        //array of invites that is the node positions
-        uint256[] invites;
+        //array of the node that has given member SMB
+        uint256[] smbNodesReceived;
         MembershipType membershipType;
         bool status; //if the member is active or not
         uint8 clickCount; //how many times they have clicked in 24 hours
@@ -141,7 +141,7 @@ contract PayToClickContract {
         //save the Member details
         Member memory newMember;
         newMember.directRefEarnings = 0;
-        newMember.invites = new uint256[](0);
+        newMember.smbNodesReceived = new uint256[](0);
         newMember.walletAddress = owner;
         newMember.slotIndex = 0;
         newMember.upline = address(0);
@@ -199,7 +199,7 @@ contract PayToClickContract {
         newMember.walletAddress = msg.sender;
         newMember.clickRewardEarned = 0;
         newMember.firstClickToday = 0;
-        newMember.invites = new uint256[](0);
+        newMember.smbNodesReceived = new uint256[](0);
         newMember.totalEarnings = 0;
         MembershipType memberType;
         if (planIndex == 0) {
@@ -225,10 +225,10 @@ contract PayToClickContract {
             members[referral].directRefEarnings +
             directRefBonus;
         //add the index to the
-        if (canInsert) {
-            //you only add the confirm node to the invites
-            members[referral].invites.push(insertIndex);
-        }
+        // if (canInsert) {
+        //     //you only add the confirm node to the invites
+        //     members[referral].invites.push(insertIndex);
+        // }
         shareTokenFeeToAdmin(amountToShare);
 
         VUSDTOKEN.transferFrom(msg.sender, tokenManager, amountToContract);
@@ -610,10 +610,10 @@ contract PayToClickContract {
     function retrieveSubNode()
         public
         view
-        returns (SharedStructs.Node[] memory)
+        returns ( SharedStructs.Node[] memory, uint256[] memory)
     {
         //return the generated sub node of the user;
-        return (memberSubNode[msg.sender]);
+        return (memberSubNode[msg.sender], members[msg.sender].smbNodesReceived);
     }
 
     receive() external payable {}
@@ -753,15 +753,19 @@ contract PayToClickContract {
 
     function updateSMBBalance(
         uint256 smb,
-        SharedStructs.Node[] memory nodesToUpdate
+        //SharedStructs.Node[] memory nodesToUpdate
+        uint256[] memory contributingNodes
+        
     ) public {
-        for (uint256 i = 0; i < nodesToUpdate.length; i++) {
-            SharedStructs.Node memory currentNode = nodesToUpdate[i];
-            nodes[currentNode.index].points = currentNode.points;
-        }
-        if (smb > 0) {
-            smbBonusEarned[msg.sender] = smbBonusEarned[msg.sender] + smb;
-        }
+        members[msg.sender].smbNodesReceived = contributingNodes;
+
+        // for (uint256 i = 0; i < nodesToUpdate.length; i++) {
+        //     SharedStructs.Node memory currentNode = nodesToUpdate[i];
+        //     nodes[currentNode.index].points = currentNode.points;
+        // }
+         if (smb > 0) {
+             smbBonusEarned[msg.sender] = smbBonusEarned[msg.sender] + smb;
+         }
     }
 
     function getMemberDetails()
@@ -777,6 +781,7 @@ contract PayToClickContract {
             uint256,
             uint256,
             uint8
+            //uint256[] memory
         )
     {
         return (
@@ -789,6 +794,8 @@ contract PayToClickContract {
             members[msg.sender].totalEarnings,
             members[msg.sender].firstClickToday,
             members[msg.sender].clickCount
+            //members[msg.sender].smbNodesReceived
+
         );
     }
 

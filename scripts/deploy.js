@@ -67,9 +67,9 @@ main().catch((error) => {
 
 
 
-//Token manager deployed to 0x3c681A22c37193e2E793178b0339ad4599234b90
+//Token manager deployed to 0x91938b967f3e59984D4347FB62E3292DeF48e9e1
 
-//control contract deployed to  0xA5169fd9ee98220EbCcAc4DEe61c11736b76C0e3
+//control contract deployed to  0x79ffc5Ed14f2982D192e3Da60817fa57A1f8f700
 
 
-//pay to click contract deployed to  0x88d9BD06216E238323e6D96646f9b95752929976
+//pay to click contract deployed to  0x559124761E352cf891804f8ddDEbaF1F1Bb16b14
