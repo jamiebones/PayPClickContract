@@ -12,120 +12,31 @@ const amountToTransfer = ethers.utils.parseEther("1000");
 
 const bigAmountToTransfer = ethers.utils.parseEther("1000000000");
 
-const { GetAllNodesAtEachLevel,  CalculateSMBBonus } = require("./utilities");
+const { GetAllNodesAtEachLevel, CalculateSMBBonus } = require("./utilities");
 
-// function getSigners(amount = 40) {
-//   // getting seed phrase and derivation path from the hardhat config
-//   const { mnemonic, path } = hre.network.config.accounts
-//   return [...Array(amount).keys()].map((i) =>
-//     hre.ethers.Wallet.fromMnemonic(mnemonic, `${path}/${i}`)
-//       .connect(hre.ethers.provider),
-//   )
-// }
-
+let owner,
+  memberOne,
+  memberTwo,
+  memberThree,
+  memberFour,
+  memberFive,
+  memberSix,
+  memberSeven,
+  memberEight,
+  memberNine,
+  memberTen,
+  memberEleven,
+  admin1,
+  admin2,
+  admin3,
+  admin4,
+  VUSDContract,
+  ControlContract,
+  PayToClickContract,
+  TokenManager;
 
 describe("PayToClickContract", function () {
-  // We define a fixture to reuse the same setup in every test.
-  // We use loadFixture to run this setup once, snapshot that state,
-  // and reset Hardhat Network to that snapshot in every test.
-
-  async function setUpContractUtils() {
-    const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
-    const ONE_ETH = 1_000_000_000_000_000_000;
-
-    const deposit = ONE_ETH * 0.001;
-    const amountToDeposit = ethers.utils.parseEther("0.001");
-    const futureTime = (await time.latest()) + ONE_YEAR_IN_SECS;
-
-    // Contracts are deployed using the first signer/account by default
-    const [
-      owner,
-      memberOne,
-      memberTwo,
-      memberThree,
-      memberFour,
-      memberFive,
-      memberSix,
-      admin1,
-      admin2,
-      admin3,
-      admin4,
-    ] = await ethers.getSigners();
-
-    //deploy the test token contract
-    const VUSDContractFactory = await hre.ethers.getContractFactory("VUSD");
-    const VUSDContract = await VUSDContractFactory.deploy();
-    await VUSDContract.deployed();
-
-    console.log("vusd token deployed to ", VUSDContract.address);
-
-    //contract Factory
-    const ControlFactory = await hre.ethers.getContractFactory(
-      "ControlContract"
-    );
-
-    const ControlContract = await ControlFactory.deploy(
-      owner.address,
-      VUSDContract.address
-    );
-    await ControlContract.deployed();
-
-    console.log("control contract deployed to ", ControlContract.address);
-
-    //deploy the contracts here
-    const PayToClickFactory = await hre.ethers.getContractFactory(
-      "PayToClickContract"
-    );
-    const PayToClickContract = await PayToClickFactory.deploy(
-      owner.address,
-      VUSDContract.address,
-      ControlContract.address,
-      [admin1.address, admin2.address, admin3.address, admin4.address]
-    );
-    await PayToClickContract.deployed();
-
-    console.log(
-      "pay to click contract deployed to ",
-      PayToClickContract.address
-    );
-
-    return {
-      PayToClickContract,
-      VUSDContract,
-      ControlContract,
-      owner,
-      memberOne,
-      memberTwo,
-      memberThree,
-      memberFour,
-      memberFive,
-      memberSix,
-      admin1,
-      admin2,
-      admin3,
-      admin4,
-    };
-  }
-
-
-
-
-
   describe("Pay to click test suite", async function () {
-    let owner,
-      memberOne,
-      memberTwo,
-      memberThree,
-      memberFour,
-      memberFive,
-      memberSix,
-      admin1,
-      admin2,
-      admin3,
-      admin4,
-      VUSDContract,
-      ControlContract,
-      PayToClickContract;
     before(async () => {
       [
         owner,
@@ -135,6 +46,11 @@ describe("PayToClickContract", function () {
         memberFour,
         memberFive,
         memberSix,
+        memberSeven,
+        memberEight,
+        memberNine,
+        memberTen,
+        memberEleven,
         admin1,
         admin2,
         admin3,
@@ -145,6 +61,17 @@ describe("PayToClickContract", function () {
       VUSDContract = await VUSDContractFactory.deploy();
       await VUSDContract.deployed();
       console.log("VUSD contract deployed to ", VUSDContract.address);
+
+      //token manager
+      const TokenManagerFactory = await hre.ethers.getContractFactory(
+        "TokenManagerContract"
+      );
+      TokenManager = await TokenManagerFactory.deploy(
+        VUSDContract.address //token address
+      );
+      await TokenManager.deployed();
+      console.log("Token manager deployed to", TokenManager.address);
+
       //contract Factory
       const ControlFactory = await hre.ethers.getContractFactory(
         "ControlContract"
@@ -152,7 +79,8 @@ describe("PayToClickContract", function () {
       ControlContract = await ControlFactory.deploy(
         owner.address,
         VUSDContract.address,
-        [admin1.address, admin2.address, admin3.address, admin4.address]
+        [admin1.address, admin2.address, admin3.address, admin4.address],
+        TokenManager.address
       );
       await ControlContract.deployed();
       console.log("control contract deployed to ", ControlContract.address);
@@ -164,7 +92,8 @@ describe("PayToClickContract", function () {
         owner.address,
         VUSDContract.address,
         ControlContract.address,
-        [admin1.address, admin2.address, admin3.address, admin4.address]
+        [admin1.address, admin2.address, admin3.address, admin4.address],
+        TokenManager.address
       );
       await PayToClickContract.deployed();
       console.log(
@@ -198,13 +127,45 @@ describe("PayToClickContract", function () {
         memberSix.address,
         bigAmountToTransfer
       );
+
+      await VUSDContract.connect(owner).transfer(
+        memberSeven.address,
+        bigAmountToTransfer
+      );
+
+      await VUSDContract.connect(owner).transfer(
+        memberEight.address,
+        bigAmountToTransfer
+      );
+
+      await VUSDContract.connect(owner).transfer(
+        memberNine.address,
+        bigAmountToTransfer
+      );
+
+      await VUSDContract.connect(owner).transfer(
+        memberTen.address,
+        bigAmountToTransfer
+      );
+
+      await VUSDContract.connect(owner).transfer(
+        memberEleven.address,
+        bigAmountToTransfer
+      );
+      await VUSDContract.connect(owner).transfer(
+        admin1.address,
+        bigAmountToTransfer
+      );
+
+      await VUSDContract.connect(owner).transfer(
+        admin2.address,
+        bigAmountToTransfer
+      );
+
       await ControlContract.connect(owner).setAdminDetails(50, 18);
     });
 
-  
-    it("should be able to buy membership", async () => {
-     
-      const balBefore = await VUSDContract.balanceOf(memberOne.address);
+    it("should approve contract", async () => {
       await VUSDContract.connect(memberOne).approve(
         PayToClickContract.address,
         ethers.utils.parseEther("10000")
@@ -229,156 +190,230 @@ describe("PayToClickContract", function () {
         PayToClickContract.address,
         ethers.utils.parseEther("10000")
       );
+      await VUSDContract.connect(memberSeven).approve(
+        PayToClickContract.address,
+        ethers.utils.parseEther("10000")
+      );
+      await VUSDContract.connect(memberEight).approve(
+        PayToClickContract.address,
+        ethers.utils.parseEther("10000")
+      );
+      await VUSDContract.connect(memberNine).approve(
+        PayToClickContract.address,
+        ethers.utils.parseEther("10000")
+      );
+      await VUSDContract.connect(memberTen).approve(
+        PayToClickContract.address,
+        ethers.utils.parseEther("10000")
+      );
 
+      await VUSDContract.connect(memberEleven).approve(
+        PayToClickContract.address,
+        ethers.utils.parseEther("10000")
+      );
+
+      await VUSDContract.connect(admin1).approve(
+        PayToClickContract.address,
+        ethers.utils.parseEther("10000")
+      );
+
+      await VUSDContract.connect(admin2).approve(
+        PayToClickContract.address,
+        ethers.utils.parseEther("10000")
+      );
+    });
+
+    it("should be able to buy membership", async () => {
       await PayToClickContract.connect(memberOne).buyMembershipPlan(
         0,
         owner.address
       );
 
-      await PayToClickContract.connect(memberTwo).buyMembershipPlan(
-        0,
+      await PayToClickContract.connect(memberSix).buyMembershipPlan(
+        2,
         owner.address
       );
 
+      await PayToClickContract.connect(memberTwo).buyMembershipPlan(
+        2,
+        memberOne.address
+      );
+
       await PayToClickContract.connect(memberThree).buyMembershipPlan(
-        0,
+        2,
         memberOne.address
       );
 
       await PayToClickContract.connect(memberFour).buyMembershipPlan(
-        0,
+        2,
         memberOne.address
       );
 
-
-      // await PayToClickContract.connect(memberFour).buyMembershipPlan(
-      //   1,
-      //   owner.address
-      // );
-      // await PayToClickContract.connect(memberFive).buyMembershipPlan(
-      //   1,
-      //   memberOne.address
-      // );
-      // await PayToClickContract.connect(memberSix).buyMembershipPlan(
-      //   2,
-      //   memberOne.address
-      // );
-
-      const node = await PayToClickContract.connect(owner).getNodeByIndex(0);
-     
-
-      const balAfter = await VUSDContract.balanceOf(memberOne.address);
-
-      console.log('USER balance before buying plan: ', (balBefore.toString())/10 ** 18);
-      console.log(`USER balance after buying plan :`, balAfter.toString()/10 ** 18);
-
-      expect(balBefore.toString() - balAfter.toString()).to.be.greaterThan(0);
+      await PayToClickContract.connect(memberFive).buyMembershipPlan(
+        2,
+        memberOne.address
+      );
     });
 
-    // it("insert the node in the correct location", async() => {
-    //     const nodeBefore = await PayToClickContract.connect(memberOne).getNodeByIndex(1);
-    //     await PayToClickContract.connect(memberOne).insertSpillOverMember(1, 50,memberThree.address,{value: ethers.utils.parseEther("1")});
-    //     await PayToClickContract.connect(memberOne).insertSpillOverMember(1, 50,memberFour.address,{value: ethers.utils.parseEther("1")});
-    //     const nodeAfter = await PayToClickContract.connect(memberOne).getNodeByIndex(1);
+    it("should generate first smb", async () => {
+      await PayToClickContract.connect(
+        memberOne
+      ).generateSubNodeFromBinaryTree();
+      const balBefore = await VUSDContract.balanceOf(memberOne.address);
 
-    //     const [, , leftPointer, rightPointer] = nodeBefore;
+      const nodes = await PayToClickContract.connect(
+        memberOne
+      ).retrieveSubNode();
+      let nodeArray = [];
+      for (let i = 0; i < nodes.length; i++) {
+        const [memberAddress, index, leftPointer, rightPointer, points] =
+          nodes[i];
+        const obj = {
+          memberAddress: memberAddress,
+          index: +index.toString(),
+          leftPointer: +leftPointer.toString(),
+          rightPointer: +rightPointer.toString(),
+          points: +points.toString(),
+        };
+        nodeArray.push(obj);
+      }
 
-    //     const [,, leftPointer2, rightPointer2] = nodeAfter;
+      const nodesLevelArray = GetAllNodesAtEachLevel(nodeArray);
 
-    //     expect(+leftPointer.toString()).to.be.equal(0);
-    //     expect(+rightPointer.toString()).to.be.equal(0);
-    //     expect(+leftPointer2.toString()).to.be.equal(3);
-    //     expect(+rightPointer2.toString()).to.be.equal(4);
+      const { smb, nodes: returnNode } = CalculateSMBBonus(
+        nodesLevelArray,
+        nodeArray
+      );
 
-    //   })
-
-      it("should calculate the SMB Bonus", async() => {
-
-        await PayToClickContract.connect(owner).generateSubNodeFromBinaryTree();
-        const nodes = await PayToClickContract.connect(owner).retrieveSubNode();
-        let nodeArray = [];
-        for (let i = 0; i < nodes.length; i++) {
-          const [memberAddress, index, leftPointer, rightPointer, points] =
-            nodes[i];
-          const obj = {
-            memberAddress: memberAddress,
-            index: +index.toString(),
-            leftPointer: +leftPointer.toString(),
-            rightPointer: +rightPointer.toString(),
-            points: +points.toString(),
-          };
-          nodeArray.push(obj);
-        }
-
-        const nodesLevelArray = GetAllNodesAtEachLevel(nodeArray);
-        
-        //the nodeLevelArray is an array of the nodes in levels and the nodeArray is the root array
-        const { smb, nodes: returnNode } = CalculateSMBBonus(
-          nodesLevelArray,
-          nodeArray
+      if (smb > 0 && returnNode.length > 0) {
+        console.log("cal smb ", smb);
+        console.log("return node ", returnNode)
+        await PayToClickContract.connect(memberOne).updateSMBBalance(
+          smb,
+          returnNode
         );
+      }
+    });
 
-        const [,,,,pointBefore] = await PayToClickContract.getNodeByIndex(1);
-
-
-        if ( smb > 0 && returnNode.length > 0 ){
-            await PayToClickContract.connect(memberOne).updateSMBBalance(smb, returnNode);
-           
-        }
-
-        const [,,,,pointAfter] = await PayToClickContract.getNodeByIndex(1);
-
-        console.log("points before|after", pointBefore.toString(), pointAfter.toString());
-
-        expect(+pointBefore.toString()).to.be.greaterThan(+pointAfter.toString())
-        
-    
+    it("should make first withdrawal", async () => {
+      const balBefore = await VUSDContract.balanceOf(memberOne.address);
+      await PayToClickContract.connect(memberOne).withdrawEarnings({
+        value: ethers.utils.parseEther("1"),
       });
 
-      it("should be able to click adds", async() => {
+      const balAfter = await VUSDContract.balanceOf(memberOne.address);
+      console.log(
+        `before withdrawing ${
+          balBefore.toString() / 10 ** 18
+        } :: after withdrawing ${balAfter.toString() / 10 ** 18}`
+      );
+      console.log("member one address ", memberOne.address);
+    });
 
-        
-          await PayToClickContract.connect(memberOne).clickToEarn({value: ethers.utils.parseEther("1")});
-          //await PayToClickContract.connect(memberOne).clickToEarn({value: ethers.utils.parseEther("1")});
-          // await PayToClickContract.connect(memberOne).clickToEarn({value: ethers.utils.parseEther("1")});
-          // await PayToClickContract.connect(memberOne).clickToEarn({value: ethers.utils.parseEther("1")});
-          // await PayToClickContract.connect(memberOne).clickToEarn({value: ethers.utils.parseEther("1")});
-          // await PayToClickContract.connect(memberOne).clickToEarn({value: ethers.utils.parseEther("1")});
-          // await PayToClickContract.connect(memberOne).clickToEarn({value: ethers.utils.parseEther("1")});
-          // await PayToClickContract.connect(memberOne).clickToEarn({value: ethers.utils.parseEther("1")});
-          // await PayToClickContract.connect(memberOne).clickToEarn({value: ethers.utils.parseEther("1")});
-          // await PayToClickContract.connect(memberOne).clickToEarn({value: ethers.utils.parseEther("1")});
-          // //increase time here:
-          // const latestTime = await time.latest();
-          // await time.increaseTo(latestTime + (1 * 24 * 60 * 60));
-          // await PayToClickContract.connect(memberOne).clickToEarn({value: ethers.utils.parseEther("1")});
+    it("should subscribe and renew", async () => {
+      const balBefore = await VUSDContract.balanceOf(memberOne.address);
+      await PayToClickContract.connect(memberOne).renewSubScription({
+        value: ethers.utils.parseEther("1"),
       });
 
-      it("should be able to renew the subscription", async() => {
-        //await PayToClickContract.connect(memberOne).renewSubScription({value: ethers.utils.parseEther("1")});
-        // await expect(PayToClickContract.connect(memberOne).renewSubScription({value: ethers.utils.parseEther("1")})).to.be.revertedWith("o");
+      const balAfter = await VUSDContract.balanceOf(memberOne.address);
+      console.log(
+        `before subbing ${balBefore.toString() / 10 ** 18} :: after subbing ${
+          balAfter.toString() / 10 ** 18
+        }`
+      );
+    });
+
+    it("should calculate second SMB", async () => {
+      await PayToClickContract.connect(
+        memberOne
+      ).generateSubNodeFromBinaryTree();
+      const nodes = await PayToClickContract.connect(
+        memberOne
+      ).retrieveSubNode();
+      let nodeArray = [];
+      for (let i = 0; i < nodes.length; i++) {
+        const [memberAddress, index, leftPointer, rightPointer, points] =
+          nodes[i];
+        const obj = {
+          memberAddress: memberAddress,
+          index: +index.toString(),
+          leftPointer: +leftPointer.toString(),
+          rightPointer: +rightPointer.toString(),
+          points: +points.toString(),
+        };
+        nodeArray.push(obj);
+      }
+
+      const nodesLevelArray = GetAllNodesAtEachLevel(nodeArray);
+
+      const { smb, nodes: returnNode } = CalculateSMBBonus(
+        nodesLevelArray,
+        nodeArray
+      );
+
+      if (smb > 0 && returnNode.length > 0) {
+        console.log("cal smb ", smb);
+        console.log("return node second", returnNode)
+        await PayToClickContract.connect(memberOne).updateSMBBalance(
+          smb,
+          returnNode
+        );
+      }
+    });
+
+    it("should calculate third SMB", async () => {
+      await PayToClickContract.connect(
+        memberOne
+      ).generateSubNodeFromBinaryTree();
+      const nodes = await PayToClickContract.connect(
+        memberOne
+      ).retrieveSubNode();
+      let nodeArray = [];
+      for (let i = 0; i < nodes.length; i++) {
+        const [memberAddress, index, leftPointer, rightPointer, points] =
+          nodes[i];
+        const obj = {
+          memberAddress: memberAddress,
+          index: +index.toString(),
+          leftPointer: +leftPointer.toString(),
+          rightPointer: +rightPointer.toString(),
+          points: +points.toString(),
+        };
+        nodeArray.push(obj);
+      }
+
+      const nodesLevelArray = GetAllNodesAtEachLevel(nodeArray);
+
+      const { smb, nodes: returnNode } = CalculateSMBBonus(
+        nodesLevelArray,
+        nodeArray
+      );
+
+      if (smb > 0 && returnNode.length > 0) {
+        console.log("cal smb ", smb);
+        console.log("return node 3", returnNode)
+        await PayToClickContract.connect(memberOne).updateSMBBalance(
+          smb,
+          returnNode
+        );
+      }
+    });
+
+    it("last withdrawal should fail", async () => {
+      const balBefore = await VUSDContract.balanceOf(memberOne.address);
+      await PayToClickContract.connect(memberOne).withdrawEarnings({
+        value: ethers.utils.parseEther("1"),
       });
 
-      it("should be able to withdraw earnings", async()=> {
-        const balBefore = await VUSDContract.balanceOf(memberOne.address);
-        const contractbalBefore = await VUSDContract.balanceOf(PayToClickContract.address);
-        console.log("contract balance before : ", +(contractbalBefore.toString())/10**18)
-         await PayToClickContract.connect(memberOne).withdrawEarnings({value: ethers.utils.parseEther("1")});
-         const balAfter = await VUSDContract.balanceOf(memberOne.address);
-         const contractbalAfter = await VUSDContract.balanceOf(PayToClickContract.address);
+      const balAfter = await VUSDContract.balanceOf(memberOne.address);
+      console.log(
+        `before withdrawing ${
+          balBefore.toString() / 10 ** 18
+        } :: after withdrawing ${balAfter.toString() / 10 ** 18}`
+      );
+    });
 
-
-         console.log("user bal before: user balance after : ", +(balBefore.toString())/10 ** 18, +(balAfter.toString())/10 ** 18)
-         console.log("contract balance after : ", +(contractbalAfter.toString())/10**18)
-         expect(+balAfter.toString()/10**18).to.be.greaterThan(+balBefore.toString()/10**18);
-         expect(+contractbalBefore.toString()/10**18).to.be.greaterThan(+contractbalAfter.toString()/10**18);
-        });
-      it("should be able to set advert cost", async()=> {
-          // await ControlContract.connect(owner).setAdminDetails(10, 0);
-      })
-      it("should be able to pay for advert", async()=> {
-          // await VUSDContract.connect(memberOne).approve(ControlContract.address, ethers.utils.parseEther("10000"));
-          // await ControlContract.connect(memberOne).buyAdvertiserPlan("This is a scammer paradise", ["https://google.com"]);
-      })
+  
   });
 });

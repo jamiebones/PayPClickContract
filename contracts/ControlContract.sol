@@ -1,5 +1,5 @@
 //SPDX-License-Identifier:MIT
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.15;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -23,6 +23,8 @@ contract ControlContract is Ownable, ReentrancyGuard {
     uint256 public head;
     uint256 public tail;
 
+    address private tokenManager;
+
     //SIMPLE QUEUE VARIABLE
     SharedStructs.Node[] public Nodequeue;
 
@@ -38,7 +40,7 @@ contract ControlContract is Ownable, ReentrancyGuard {
 
     address public ownerWallet; //wallet of owner
 
-    uint256 public minimumWithdrawal = 50;
+    uint256 public minimumWithdrawal = 50 * 1 ether;
     uint256 public smbBonus = 2;
 
     //payment wallet
@@ -93,8 +95,14 @@ contract ControlContract is Ownable, ReentrancyGuard {
         uint256 points;
     }
 
-    constructor(address owner, address tokenAddress, address[]memory wallets) Ownable() {
+    constructor(
+        address owner,
+        address tokenAddress,
+        address[] memory wallets,
+        address tokenManagerAddress
+    ) Ownable() {
         ownerWallet = owner;
+        tokenManager = tokenManagerAddress;
         VUSDTOKEN = IERC20(tokenAddress);
         //set admin adminWallet
         for (uint8 i = 0; i < wallets.length; i++) {
@@ -135,7 +143,7 @@ contract ControlContract is Ownable, ReentrancyGuard {
         uint256 amountToContract = (advertCost * 90) / 100;
         bool success = VUSDTOKEN.transferFrom(
             msg.sender,
-            address(this),
+            tokenManager,
             amountToContract
         );
         require(success, "Transfer failed");
@@ -224,7 +232,7 @@ contract ControlContract is Ownable, ReentrancyGuard {
         uint256 smbBonusAllocation
     ) public onlyOwner {
         if (minimumWithdrawal > 0) {
-            minimumWithdrawal = minWithdrawal;
+            minimumWithdrawal = minWithdrawal * 1 ether;
         }
         if (smbBonusAllocation > 0) {
             smbBonus = smbBonusAllocation;
@@ -241,7 +249,7 @@ contract ControlContract is Ownable, ReentrancyGuard {
 
         //divide what comes in by 1000
         if (rewardForClicking > 0) {
-            clickReward = rewardForClicking * 1 ether / 1000;
+            clickReward = (rewardForClicking * 1 ether) / 1000;
             //clickReward = rewardForClicking;
         }
     }
@@ -332,12 +340,22 @@ contract ControlContract is Ownable, ReentrancyGuard {
         //20% and 80%
         require(ownerWallet != address(0), "owner wallet not set");
         require(adminWallet.length == 4, "set admin wallet");
-        bool success = VUSDTOKEN.transfer(ownerWallet, (amount * 20) / 100);
+        (bool success, ) = tokenManager.call(
+            abi.encodeWithSignature(
+                "transfer(address,uint256)",
+                ownerWallet,
+                (amount * 20) / 100
+            )
+        );
+
         require(success);
         for (uint256 i = 0; i < adminWallet.length; i++) {
-            bool success2 = VUSDTOKEN.transfer(
-                adminWallet[i],
-                (amount * 20) / 100
+            (bool success2, ) = tokenManager.call(
+                abi.encodeWithSignature(
+                    "transfer(address,uint256)",
+                    adminWallet[i],
+                    (amount * 20) / 100
+                )
             );
             require(success2);
         }
@@ -373,12 +391,11 @@ contract ControlContract is Ownable, ReentrancyGuard {
         return tail;
     }
 
-
-    function getTokenBalance(address account) public view returns (uint){
+    function getTokenBalance(address account) public view returns (uint256) {
         return VUSDTOKEN.balanceOf(account);
     }
 
-    function getAllAdverts() public view returns (Advertiser[] memory){
+    function getAllAdverts() public view returns (Advertiser[] memory) {
         return advertisers;
     }
 

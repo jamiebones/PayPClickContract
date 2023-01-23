@@ -5,10 +5,11 @@
   "main": "index.js",
   "scripts": {
     "test-local": "npx hardhat test --network ventionMainnet ./test/test-mainnet.js",
+    "deploy-mumbai": "npx hardhat run scripts/deploy.js --network polygonMumbai",
     "deploy": "npx hardhat run scripts/deploy.js --network ventionMainnet",
     "run-local": "npx hardhat run scripts/run.js --network hardhat",
     "test": "npx hardhat test --network hardhat ./test/test.js",
-    "verify-control": "npx hardhat run scripts/verifyControlContract.js --network ventionMainnet",
+    "verify-control": "npx hardhat run scripts/verifyControlContract.js --network polygonMumbai",
     "build-contracts": "sol-merger \"./contracts/*.sol\" ./build"
   },
   "keywords": [],

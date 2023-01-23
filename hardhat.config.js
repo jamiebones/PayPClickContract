@@ -16,7 +16,7 @@ module.exports = {
         version: "0.8.1",
       },
       {
-        version: "0.8.16",
+        version: "0.8.15",
       }
     ],
     settings: {
@@ -48,6 +48,18 @@ module.exports = {
       chainId: 77612,
       gas: 2100000,
       gasPrice: 8000000000,
+    },
+    polygonMainnet: {
+      url: "https://rpc-mainnet.matic.quiknode.pro",
+      chainId: 137,
+      gasPrice: 35000000000,
+      accounts: [process.env.PRIVATE_KEY],
+      
+    },
+    polygonMumbai: {
+      url: ` https://polygon-mumbai.g.alchemy.com/v2/${process.env.POLY_SCAN}`,
+      accounts: [process.env.PRIVATE_KEY],
+      chainId: 80001,
     },
   },
   etherscan: {
